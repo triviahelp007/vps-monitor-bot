@@ -1,35 +1,58 @@
-import time
 import psutil
+import shutil
+import socket
 import requests
+import time
+import os
 
-TOKEN = "YOUR_BOT_TOKEN"
-CHAT_ID = "YOUR_CHAT_ID"
+BOT_TOKEN = "{{BOT_TOKEN}}"
+CHAT_ID = "{{CHAT_ID}}"
 
-def send_message(text):
-    url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
-    data = {"chat_id": CHAT_ID, "text": text}
+def send_message(message):
+    url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
+    payload = {"chat_id": CHAT_ID, "text": message}
     try:
-        requests.post(url, data=data)
+        requests.post(url, data=payload)
     except Exception as e:
-        print("Error sending message:", e)
+        print("Failed to send message:", e)
 
-def get_usage():
+def check_ping(host="8.8.8.8"):
+    try:
+        socket.setdefaulttimeout(2)
+        socket.socket(socket.AF_INET, socket.SOCK_STREAM).connect((host, 53))
+        return True
+    except Exception:
+        return False
+
+def get_stats():
     cpu = psutil.cpu_percent(interval=1)
     ram = psutil.virtual_memory().percent
-    disk = psutil.disk_usage('/').percent
+    disk = psutil.disk_usage("/").percent
     net = psutil.net_io_counters()
-    return f"""
-📊 *VPS Resource Usage*
-CPU: {cpu}%
-RAM: {ram}%
-Disk: {disk}%
-Net: ↑ {round(net.bytes_sent/1024/1024, 2)} MB | ↓ {round(net.bytes_recv/1024/1024, 2)} MB
-"""
+    return cpu, ram, disk, net.bytes_sent, net.bytes_recv
 
-send_message("✅ VPS Monitor Bot started!")
+def main():
+    while True:
+        cpu, ram, disk, sent, recv = get_stats()
+        is_up = check_ping()
 
+        alert_msg = ""
 
-while True:
-    usage = get_usage()
-    send_message(usage)
-    time.sleep(300)  # Send every 5 minutes
+        if not is_up:
+            alert_msg += "⚠️ Server appears to be offline (ping failed).\n"
+        if disk > 90:
+            alert_msg += f"📦 Disk usage alert: {disk}% used\n"
+
+        if alert_msg:
+            message = (
+                f"📡 *VPS Monitor Alert*\n"
+                f"{alert_msg}"
+                f"🖥 CPU: {cpu:.2f}%\n"
+                f"🧠 RAM: {ram:.2f}%\n"
+                f"📶 Network: ↑{sent/1024:.2f} KB ↓{recv/1024:.2f} KB"
+            )
+            send_message(message)
+        time.sleep(300)  # Check every 5 minutes
+
+if __name__ == "__main__":
+    main()
