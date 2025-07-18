@@ -28,6 +28,7 @@ Net: ↑ {round(net.bytes_sent/1024/1024, 2)} MB | ↓ {round(net.bytes_recv/102
 
 send_message("✅ VPS Monitor Bot started!")
 
+
 while True:
     usage = get_usage()
     send_message(usage)
