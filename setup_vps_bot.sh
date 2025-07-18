@@ -1,7 +1,7 @@
 #!/bin/bash
 
 echo "=============================="
-echo " VPS Monitor Bot Setup Script"
+echo " VPS Monitor Bot Setup Script By Debaditya Ghosh"
 echo "=============================="
 
 read -p "🔐 Enter your Telegram Bot Token: " TOKEN
