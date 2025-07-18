@@ -1,32 +1,32 @@
 #!/bin/bash
 
 echo "=============================="
-echo " VPS Monitor Bot Setup Script by Debaditya Ghosh"
+echo " VPS Monitor Bot Setup Script By Debaditya Ghosh"
 echo "=============================="
 
-# 🔐 Get credentials
 read -p "🔐 Enter your Telegram Bot Token: " TOKEN
 read -p "👤 Enter your Telegram Chat ID: " CHAT_ID
 
-# 📦 Install dependencies
+# Install dependencies
 apt update && apt install -y python3 python3-pip git curl
 
 echo "📁 Setting up bot code..."
 cd "$(dirname "$0")" || exit 1
 
-# 🛠️ Generate actual bot script with credentials
-sed "s|{{BOT_TOKEN}}|$TOKEN|g; s|{{CHAT_ID}}|$CHAT_ID|g" monitor_bot.py.template > monitor_bot.py
+# Replace placeholders in template and restart service in one line
+sed "s|{{BOT_TOKEN}}|$TOKEN|g; s|{{CHAT_ID}}|$CHAT_ID|g" monitor_bot.py.template > monitor_bot.py && echo "✅ Bot config generated."
 
-echo "📦 Installing Python dependencies..."
+# Install Python dependencies
 pip3 install --break-system-packages -r requirements.txt
 
-# 🚀 Launch initial background run (won’t re-run if systemd is working)
+# Run bot in background (first-time run)
 nohup python3 monitor_bot.py > bot.log 2>&1 &
 
 echo "✅ Bot is running in the background."
 echo "ℹ️ Log file: $(pwd)/bot.log"
 
-# ⚙️ Setting up systemd service
+# === Add systemd auto-start service ===
+echo "🔧 Setting up systemd service..."
 SERVICE_PATH="/etc/systemd/system/vpsmonitor.service"
 cat <<EOF > $SERVICE_PATH
 [Unit]
@@ -44,11 +44,9 @@ User=root
 WantedBy=multi-user.target
 EOF
 
-echo "🔧 Enabling and starting systemd service..."
 systemctl daemon-reexec
 systemctl daemon-reload
 systemctl enable vpsmonitor.service
 systemctl restart vpsmonitor.service
 
-echo "✅ Service 'vpsmonitor' is running and will auto-start on reboot!"
-echo "📄 Logs: journalctl -u vpsmonitor.service -f"
+echo "✅ Systemd service created and started. Bot will auto-start on reboot!"
