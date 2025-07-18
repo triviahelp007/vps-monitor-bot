@@ -4,42 +4,40 @@ echo "=============================="
 echo " VPS Monitor Bot Setup Script By Debaditya Ghosh"
 echo "=============================="
 
+# 🔐 Gather Telegram credentials
 read -p "🔐 Enter your Telegram Bot Token: " BOT_TOKEN
 read -p "👤 Enter your Telegram Chat ID: " CHAT_ID
 
-# Install necessary packages
-apt update
-apt install -y python3 python3-pip git curl
+# 🔧 Install system dependencies
+apt update -y
+apt install -y python3 python3-venv git curl
 
-# Clone the repo
-REPO_DIR="vps-monitor-bot"
-if [ ! -d "$REPO_DIR" ]; then
-    git clone https://github.com/triviahelp007/vps-monitor-bot.git "$REPO_DIR"
-fi
-cd "$REPO_DIR" || exit 1
+# 🗂 Clone the bot code into /opt
+rm -rf /opt/vps-monitor-bot
+git clone https://github.com/triviahelp007/vps-monitor-bot.git /opt/vps-monitor-bot
+cd /opt/vps-monitor-bot || exit 1
 
-# Replace template and generate final monitor bot script
+# 🛠 Create virtual environment and install dependencies
+python3 -m venv venv
+source venv/bin/activate
+pip install --upgrade pip
+pip install -r requirements.txt
+
+# 🔄 Replace placeholders and generate final script
 sed "s|{{BOT_TOKEN}}|$BOT_TOKEN|g; s|{{CHAT_ID}}|$CHAT_ID|g" monitor_bot.py.template > monitor_bot.py
 
-# Install Python dependencies
-pip3 install -r requirements.txt
+# 🚀 Launch the bot in background
+nohup ./venv/bin/python monitor_bot.py > /opt/vps-monitor-bot/bot.log 2>&1 &
 
-# Run the bot in background
-nohup python3 monitor_bot.py > bot.log 2>&1 &
-
-echo "✅ Bot is running in the background."
-echo "ℹ️ Log file: $(pwd)/bot.log"
-
-# Create a systemd service
-SERVICE_PATH="/etc/systemd/system/vpsmonitor.service"
-cat <<EOF > "$SERVICE_PATH"
+# 🧩 Setup systemd service with virtualenv
+cat <<EOF > /etc/systemd/system/vpsmonitor.service
 [Unit]
 Description=VPS Monitor Bot
 After=network.target
 
 [Service]
-ExecStart=/usr/bin/python3 $(pwd)/monitor_bot.py
-WorkingDirectory=$(pwd)
+ExecStart=/opt/vps-monitor-bot/venv/bin/python /opt/vps-monitor-bot/monitor_bot.py
+WorkingDirectory=/opt/vps-monitor-bot
 Restart=always
 User=root
 
@@ -52,4 +50,5 @@ systemctl daemon-reload
 systemctl enable vpsmonitor.service
 systemctl restart vpsmonitor.service
 
-echo "✅ Systemd service created and started — auto-starts on reboot!"
+echo "✅ VPS Monitor Bot is installed, running, and set to auto-start."
+echo "📄 To view live logs: journalctl -u vpsmonitor.service -f"
