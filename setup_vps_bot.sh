@@ -11,24 +11,28 @@ read -p "👤 Enter your Telegram Chat ID: " CHAT_ID
 apt update
 apt install -y python3 python3-pip git curl
 
-# Clone the repo and move into it
-git clone https://github.com/triviahelp007/vps-monitor-bot.git
-cd vps-monitor-bot || exit 1
+# Clone the repo
+REPO_DIR="vps-monitor-bot"
+if [ ! -d "$REPO_DIR" ]; then
+    git clone https://github.com/triviahelp007/vps-monitor-bot.git "$REPO_DIR"
+fi
+cd "$REPO_DIR" || exit 1
 
-# Replace placeholders in monitor_bot.py.template
+# Replace template and generate final monitor bot script
 sed "s|{{BOT_TOKEN}}|$BOT_TOKEN|g; s|{{CHAT_ID}}|$CHAT_ID|g" monitor_bot.py.template > monitor_bot.py
 
 # Install Python dependencies
 pip3 install -r requirements.txt
 
-# Start the bot in background
+# Run the bot in background
 nohup python3 monitor_bot.py > bot.log 2>&1 &
 
 echo "✅ Bot is running in the background."
 echo "ℹ️ Log file: $(pwd)/bot.log"
 
-# Create systemd service
-cat <<EOF > /etc/systemd/system/vpsmonitor.service
+# Create a systemd service
+SERVICE_PATH="/etc/systemd/system/vpsmonitor.service"
+cat <<EOF > "$SERVICE_PATH"
 [Unit]
 Description=VPS Monitor Bot
 After=network.target
@@ -40,4 +44,12 @@ Restart=always
 User=root
 
 [Install]
-WantedBy=multi-user.tar
+WantedBy=multi-user.target
+EOF
+
+systemctl daemon-reexec
+systemctl daemon-reload
+systemctl enable vpsmonitor.service
+systemctl restart vpsmonitor.service
+
+echo "✅ Systemd service created and started — auto-starts on reboot!"
